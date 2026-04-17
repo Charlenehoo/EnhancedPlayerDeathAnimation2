@@ -16,13 +16,14 @@ local State = {
 local StateTransition = {
     [State.COMBAT] = { next = State.STRUGGLING, amount = STRUGGLING_HEALTH },
     [State.STRUGGLING] = { next = State.WRITHING, amount = WRITHING_HEALTH },
-    [State.WRITHING] = { next = State.WRITHING, amount = 0 }
+    [State.WRITHING] = { next = nil, amount = 0 }
 }
 
 -- 根据状态设置正确的最大血量（用于 UI 显示）
 local function setMaxHealthByState(ply, state)
     if state == State.COMBAT then
-        ply:SetMaxHealth(DEFAULT_MAX_HEALTH)
+        return
+        -- ply:SetMaxHealth(DEFAULT_MAX_HEALTH)
     elseif state == State.STRUGGLING then
         ply:SetMaxHealth(STRUGGLING_HEALTH)
     else -- WRITHING
@@ -38,11 +39,11 @@ local function handlePotentialDeath(ply, damage)
     local currentState = ply.context.state
 
     -- 递推兑现：使用映射表
-    while currentState ~= State.WRITHING and currentHealth + totalBonus - damage <= 0 do
-        local transition = StateTransition[currentState]
-        if not transition then break end
+    local transition = StateTransition[currentState]
+    while transition and transition.next and currentHealth + totalBonus - damage <= 0 do
         totalBonus = totalBonus + transition.amount
         currentState = transition.next
+        transition = StateTransition[currentState]
     end
 
     -- 临时提高生命上限并补充血量（引擎随后会扣除 damage）
@@ -88,6 +89,15 @@ end)
 -- 重生时重置上下文和最大血量
 hook.Add("PlayerSpawn", "PlayerSpawn_EPDA_LifeCycle", function(ply, transition)
     if transition then return end
+    if IsValid(ply.context.ragdol) then
+        ply.context.ragdol:Remove()
+    end
+    if IsValid(ply.context.animator) then
+        ply.context.animator:Remove()
+    end
+    if IsValid(ply.context.follower) then
+        ply.context.follower:Remove()
+    end
     ply.context = nil
     -- ply:SetMaxHealth(DEFAULT_MAX_HEALTH)
     -- ply:SetHealth(DEFAULT_MAX_HEALTH)
