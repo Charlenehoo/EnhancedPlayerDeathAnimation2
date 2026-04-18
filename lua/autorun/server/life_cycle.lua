@@ -1,5 +1,7 @@
 local CreateProps = include("modules/fake_death_props.lua")
 
+util.AddNetworkString("EPDA_Ragdoll")
+
 -- 常量定义
 local DEFAULT_MAX_HEALTH = 100 -- 引擎默认生命上限（战斗状态）
 local STRUGGLING_HEALTH = 100
@@ -21,12 +23,9 @@ local StateTransition = {
 
 -- 根据状态设置正确的最大血量（用于 UI 显示）
 local function setMaxHealthByState(ply, state)
-    if state == State.COMBAT then
-        return
-        -- ply:SetMaxHealth(DEFAULT_MAX_HEALTH)
-    elseif state == State.STRUGGLING then
+    if state == State.STRUGGLING then
         ply:SetMaxHealth(STRUGGLING_HEALTH)
-    else -- WRITHING
+    elseif state == State.WRITHING then
         ply:SetMaxHealth(WRITHING_HEALTH)
     end
 end
@@ -52,8 +51,7 @@ local function handlePotentialDeath(ply, damage)
     ply.context.state = currentState
 end
 
--- ScalePlayerDamage 钩子：仅在伤害致命时调用抢救逻辑
-hook.Add("ScalePlayerDamage", "ScalePlayerDamage_EPDA_LifeCycle", function(ply, hitgroup, dmginfo)
+local function handlePlayerTakeDamage(ply, dmginfo)
     local damage = dmginfo:GetDamage()
     if damage > ply:Health() then
         if not ply.context then
@@ -65,32 +63,44 @@ hook.Add("ScalePlayerDamage", "ScalePlayerDamage_EPDA_LifeCycle", function(ply, 
         if not ply.context.isPropCreated then
             ply.context.isPropCreated = true
             local props = CreateProps(ply)
-            ply.context.ragdol = props.ragdol
+            ply.context.ragdoll = props.ragdoll
             ply.context.animator = props.animator
             ply.context.follower = props.follower
+
+            ply:SetModelScale(0, 0)
         end
     end
-end)
+end
 
--- PlayerHurt 钩子：伤害结算后，根据最终状态刷新最大血量（UI 显示）
-hook.Add("PlayerHurt", "PlayerHurt_EPDA_LifeCycle", function(ply, attacker, health, damage)
-    -- 玩家死亡时不调整最大血量（保持原样或由重生逻辑重置）
-    if ply:Health() <= 0 then return end
+local function handlePostPlayerTakeDamage(ply, dmginfo, wasDamageTaken)
+    if not ply.context then return end -- 未初始化，说明玩家处于 State.COMBAT，无需干预
+    if not ply:Alive() then return end -- 玩家已死亡，无需干预
 
-    -- 确保上下文存在（理论上 ScalePlayerDamage 已创建，但防御性处理）
-    if not ply.context then
-        ply.context = { state = State.COMBAT }
-    end
-
-    -- 根据当前状态设置正确的最大血量
     setMaxHealthByState(ply, ply.context.state)
-end)
+end
 
--- 重生时重置上下文和最大血量
-hook.Add("PlayerSpawn", "PlayerSpawn_EPDA_LifeCycle", function(ply, transition)
-    if transition then return end
-    if IsValid(ply.context.ragdol) then
-        ply.context.ragdol:Remove()
+local function handleCreatePlayerRagdoll(ply, ragdoll)
+    if ragdoll.isEPDACustomEnt then return end
+    ply:SetModelScale(1, 0)
+
+    -- print(ragdoll:GetClass())
+
+    -- if IsValid(ragdoll) and (not ragdoll.isEPDACustomEnt) and IsValid(ply.context.ragdoll) then
+    --     for i = 0, ragdoll:GetPhysicsObjectCount() - 1 do
+    --         local engineRagdollPhysObj = ragdoll:GetPhysicsObjectNum(i)
+    --         local engineRagdollBoneId = ragdoll:TranslatePhysBoneToBone(i)
+    --         local boneName = ragdoll:GetBoneName(engineRagdollBoneId)
+    --         local customRagdollBoneId = ply.context.ragdoll:LookupBone(boneName)
+    --         local customRagdollPhysId = ply.context.ragdoll:TranslateBoneToPhysBone(customRagdollBoneId)
+    --         local customRagdollPhysObj = ply.context.ragdoll:GetPhysicsObjectNum(customRagdollPhysId)
+
+    --         engineRagdollPhysObj:SetPos(customRagdollPhysObj:GetPos())
+    --         engineRagdollPhysObj:SetAngles(customRagdollPhysObj:GetAngles())
+    --     end
+    -- end
+
+    if IsValid(ply.context.ragdoll) then
+        ply.context.ragdoll:Remove()
     end
     if IsValid(ply.context.animator) then
         ply.context.animator:Remove()
@@ -99,6 +109,29 @@ hook.Add("PlayerSpawn", "PlayerSpawn_EPDA_LifeCycle", function(ply, transition)
         ply.context.follower:Remove()
     end
     ply.context = nil
-    -- ply:SetMaxHealth(DEFAULT_MAX_HEALTH)
-    -- ply:SetHealth(DEFAULT_MAX_HEALTH)
+end
+
+hook.Add("EntityTakeDamage", "EntityTakeDamage_EPDA_LifeCycle", function(target, dmginfo)
+    if not IsValid(target) then return end
+    if target:IsPlayer() then
+        handlePlayerTakeDamage(target, dmginfo)
+    elseif target:IsRagdoll() then
+
+    end
+end)
+
+hook.Add("PostEntityTakeDamage", "PostEntityTakeDamage_EPDA_LifeCycle", function(ent, dmginfo, wasDamageTaken)
+    if not IsValid(ent) then return end
+    if ent:IsPlayer() then
+        handlePostPlayerTakeDamage(ent, dmginfo, wasDamageTaken)
+    elseif ent:IsRagdoll() then
+
+    end
+end)
+
+hook.Add("CreateEntityRagdoll", "CreateEntityRagdoll_EPDA_LifeCycle", function(owner, ragdoll)
+    if not IsValid(owner) then return end
+    if owner:IsPlayer() then
+        handleCreatePlayerRagdoll(owner, ragdoll)
+    end
 end)
