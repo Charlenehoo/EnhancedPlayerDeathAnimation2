@@ -29,7 +29,7 @@ end
 hook.Add("CalcView", "CalcView_EPDA_FakeDeathView", function(ply, origin, angles, fov, znear, zfar)
     if IsValid(ragdoll) then
         return buildView(ragdoll, origin, angles, fov, znear, zfar)
-    elseif IsValid(ply) then
-        return buildView(ply, origin, angles, fov, znear, zfar)
+        -- elseif IsValid(ply) then
+        --     return buildView(ply, origin, angles, fov, znear, zfar)
     end
 end)

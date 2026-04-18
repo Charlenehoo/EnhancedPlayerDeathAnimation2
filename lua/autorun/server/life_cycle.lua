@@ -72,6 +72,7 @@ local function handlePlayerTakeDamage(ply, dmginfo)
             net.Send(ply)
 
             ply:SetModelScale(0.1, 0)
+            ply:Lock()
         end
     end
 end
@@ -102,6 +103,8 @@ hook.Add("PostEntityTakeDamage", "PostEntityTakeDamage_EPDA_LifeCycle", function
 end)
 
 hook.Add("PostPlayerDeath", "PostPlayerDeathe_EPDA_LifeCycle", function(ply)
+    ply:SetModelScale(1, 0)
+    ply:UnLock()
     if not ply.EPDAContext then return end
 
     local engineRagdoll = ply:GetRagdollEntity() -- assert(engineRagdoll == ply.EPDAContext.ragdoll) -- false
@@ -119,8 +122,6 @@ hook.Add("PlayerSpawn", "PlayerSpawn_EPDA_LifeCycle", function(ply, transition)
     net.Start("EPDA_Ragdoll")
     net.WriteEntity(nil)
     net.Send(ply)
-
-    ply:SetModelScale(1, 0)
 
     if not ply.EPDAContext then return end
     if IsValid(ply.EPDAContext.ragdoll) then
