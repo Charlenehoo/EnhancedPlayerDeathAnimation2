@@ -67,48 +67,13 @@ local function handlePlayerTakeDamage(ply, dmginfo)
             ply.context.animator = props.animator
             ply.context.follower = props.follower
 
-            ply:SetModelScale(0, 0)
+            net.Start("EPDA_Ragdoll")
+            net.WriteEntity(ply.context.ragdoll)
+            net.Send(ply)
+
+            ply:SetModelScale(0.1, 0)
         end
     end
-end
-
-local function handlePostPlayerTakeDamage(ply, dmginfo, wasDamageTaken)
-    if not ply.context then return end -- 未初始化，说明玩家处于 State.COMBAT，无需干预
-    if not ply:Alive() then return end -- 玩家已死亡，无需干预
-
-    setMaxHealthByState(ply, ply.context.state)
-end
-
-local function handleCreatePlayerRagdoll(ply, ragdoll)
-    if ragdoll.isEPDACustomEnt then return end
-    ply:SetModelScale(1, 0)
-
-    -- print(ragdoll:GetClass())
-
-    -- if IsValid(ragdoll) and (not ragdoll.isEPDACustomEnt) and IsValid(ply.context.ragdoll) then
-    --     for i = 0, ragdoll:GetPhysicsObjectCount() - 1 do
-    --         local engineRagdollPhysObj = ragdoll:GetPhysicsObjectNum(i)
-    --         local engineRagdollBoneId = ragdoll:TranslatePhysBoneToBone(i)
-    --         local boneName = ragdoll:GetBoneName(engineRagdollBoneId)
-    --         local customRagdollBoneId = ply.context.ragdoll:LookupBone(boneName)
-    --         local customRagdollPhysId = ply.context.ragdoll:TranslateBoneToPhysBone(customRagdollBoneId)
-    --         local customRagdollPhysObj = ply.context.ragdoll:GetPhysicsObjectNum(customRagdollPhysId)
-
-    --         engineRagdollPhysObj:SetPos(customRagdollPhysObj:GetPos())
-    --         engineRagdollPhysObj:SetAngles(customRagdollPhysObj:GetAngles())
-    --     end
-    -- end
-
-    if IsValid(ply.context.ragdoll) then
-        ply.context.ragdoll:Remove()
-    end
-    if IsValid(ply.context.animator) then
-        ply.context.animator:Remove()
-    end
-    if IsValid(ply.context.follower) then
-        ply.context.follower:Remove()
-    end
-    ply.context = nil
 end
 
 hook.Add("EntityTakeDamage", "EntityTakeDamage_EPDA_LifeCycle", function(target, dmginfo)
@@ -120,6 +85,13 @@ hook.Add("EntityTakeDamage", "EntityTakeDamage_EPDA_LifeCycle", function(target,
     end
 end)
 
+local function handlePostPlayerTakeDamage(ply, dmginfo, wasDamageTaken)
+    if not ply.context then return end -- 未初始化，说明玩家处于 State.COMBAT，无需干预
+    if not ply:Alive() then return end -- 玩家已死亡，无需干预
+
+    setMaxHealthByState(ply, ply.context.state)
+end
+
 hook.Add("PostEntityTakeDamage", "PostEntityTakeDamage_EPDA_LifeCycle", function(ent, dmginfo, wasDamageTaken)
     if not IsValid(ent) then return end
     if ent:IsPlayer() then
@@ -129,9 +101,29 @@ hook.Add("PostEntityTakeDamage", "PostEntityTakeDamage_EPDA_LifeCycle", function
     end
 end)
 
-hook.Add("CreateEntityRagdoll", "CreateEntityRagdoll_EPDA_LifeCycle", function(owner, ragdoll)
-    if not IsValid(owner) then return end
-    if owner:IsPlayer() then
-        handleCreatePlayerRagdoll(owner, ragdoll)
+hook.Add("PostPlayerDeath", "PostPlayerDeathe_EPDA_LifeCycle", function(ply)
+    if not ply.context then return end
+    ply:SetModelScale(1, 0)
+
+    local engineRagdoll = ply:GetRagdollEntity() -- assert(engineRagdoll == ply.context.ragdoll) -- false
+    engineRagdoll:Remove()
+
+    if IsValid(ply.context.animator) then
+        ply.context.animator:Remove()
     end
+    if IsValid(ply.context.follower) then
+        ply.context.follower:Remove()
+    end
+end)
+
+hook.Add("PlayerSpawn", "PlayerSpawn_EPDA_LifeCycle", function(ply, transition)
+    net.Start("EPDA_Ragdoll")
+    net.WriteEntity(nil)
+    net.Send(ply)
+
+    if not ply.context then return end
+    if IsValid(ply.context.ragdoll) then
+        ply.context.ragdoll:Remove()
+    end
+    ply.context = nil
 end)
