@@ -1,0 +1,11 @@
+-- if SERVER then
+--     hook.Add("DoPlayerDeath", "DoPlayerDeath_EPDA_Ragdoll", function(ply, attacker, dmg)
+--         ply:SetShouldServerRagdoll(true)
+--     end)
+-- else
+--     hook.Add("CreateClientsideRagdoll", "CreateClientsideRagdoll_EPDA_Ragdoll", function(entity, ragdoll)
+--         if entity:IsPlayer() then
+--             ragdoll:Remove()
+--         end
+--     end)
+-- end
