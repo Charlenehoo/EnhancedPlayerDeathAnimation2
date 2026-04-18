@@ -103,7 +103,6 @@ end)
 
 hook.Add("PostPlayerDeath", "PostPlayerDeathe_EPDA_LifeCycle", function(ply)
     if not ply.context then return end
-    ply:SetModelScale(1, 0)
 
     local engineRagdoll = ply:GetRagdollEntity() -- assert(engineRagdoll == ply.context.ragdoll) -- false
     engineRagdoll:Remove()
@@ -120,6 +119,8 @@ hook.Add("PlayerSpawn", "PlayerSpawn_EPDA_LifeCycle", function(ply, transition)
     net.Start("EPDA_Ragdoll")
     net.WriteEntity(nil)
     net.Send(ply)
+
+    ply:SetModelScale(1, 0)
 
     if not ply.context then return end
     if IsValid(ply.context.ragdoll) then
