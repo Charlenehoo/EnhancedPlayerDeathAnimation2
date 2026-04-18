@@ -60,8 +60,8 @@ local function handlePlayerTakeDamage(ply, dmginfo)
 
         handlePotentialDeath(ply, damage)
 
-        if not ply.context.isPropCreated then
-            ply.context.isPropCreated = true
+        if not ply.context.hasTriggeredFakeDeath then
+            ply.context.hasTriggeredFakeDeath = true
             local props = CreateProps(ply)
             ply.context.ragdoll = props.ragdoll
             ply.context.animator = props.animator
