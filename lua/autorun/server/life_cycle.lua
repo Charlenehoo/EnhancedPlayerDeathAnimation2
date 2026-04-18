@@ -2,6 +2,8 @@ local CreateProps = include("modules/fake_death_props.lua")
 
 util.AddNetworkString("EPDA_Ragdoll")
 
+local BONE_NAME_HEAD = "ValveBiped.Bip01_Head1"
+
 -- 常量定义
 local DEFAULT_MAX_HEALTH = 100 -- 引擎默认生命上限（战斗状态）
 local STRUGGLING_HEALTH = 100
@@ -71,8 +73,9 @@ local function handlePlayerTakeDamage(ply, dmginfo)
             net.WriteEntity(ply.EPDAContext.ragdoll)
             net.Send(ply)
 
-            ply:SetModelScale(0.1, 0)
-            ply:Lock()
+            ply:SetModelScale(0, 0)
+            -- ply:Freeze(true)
+            ply:SetMoveType(MOVETYPE_NONE)
         end
     end
 end
@@ -90,21 +93,32 @@ local function handlePostPlayerTakeDamage(ply, dmginfo, wasDamageTaken)
     if not ply.EPDAContext then return end -- 未初始化，说明玩家处于 State.COMBAT，无需干预
     if not ply:Alive() then return end     -- 玩家已死亡，无需干预
 
+    ply:SetPos(ply.EPDAContext.ragdoll:GetPos())
+
     setMaxHealthByState(ply, ply.EPDAContext.state)
+end
+
+local function handlePostRagdollTakeDamage(ragdoll, dmginfo, wasDamageTaken)
+    local ply = ragdoll.EPDAOwner
+    if IsValid(ply) then
+        ply:TakeDamageInfo(dmginfo)
+    end
 end
 
 hook.Add("PostEntityTakeDamage", "PostEntityTakeDamage_EPDA_LifeCycle", function(ent, dmginfo, wasDamageTaken)
     if not IsValid(ent) then return end
+    if not wasDamageTaken then return end
     if ent:IsPlayer() then
         handlePostPlayerTakeDamage(ent, dmginfo, wasDamageTaken)
-    elseif ent:IsRagdoll() then
-
+    elseif ent:IsRagdoll() and ent.EPDACustomEntFlag then
+        handlePostRagdollTakeDamage(ent, dmginfo, wasDamageTaken)
     end
 end)
 
 hook.Add("PostPlayerDeath", "PostPlayerDeathe_EPDA_LifeCycle", function(ply)
     ply:SetModelScale(1, 0)
-    ply:UnLock()
+    ply:Freeze(false)
+    ply:SetMoveType(MOVETYPE_WALK)
     if not ply.EPDAContext then return end
 
     local engineRagdoll = ply:GetRagdollEntity() -- assert(engineRagdoll == ply.EPDAContext.ragdoll) -- false
@@ -128,4 +142,12 @@ hook.Add("PlayerSpawn", "PlayerSpawn_EPDA_LifeCycle", function(ply, transition)
         ply.EPDAContext.ragdoll:Remove()
     end
     ply.EPDAContext = nil
+end)
+
+hook.Add("PlayerTick", "PlayerTick_EPDA_LifeCycle", function(ply, mv)
+    if not ply.EPDAContext or not IsValid(ply.EPDAContext.ragdoll) then return end
+    local boneIDHead = ply.EPDAContext.ragdoll:LookupBone(BONE_NAME_HEAD)
+    if not boneIDHead then return end
+    local posHead, _ = ply.EPDAContext.ragdoll:GetBonePosition(boneIDHead)
+    ply:SetPos(posHead)
 end)

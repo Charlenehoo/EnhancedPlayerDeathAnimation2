@@ -132,7 +132,7 @@ local function createAnimatorFollower(ragdoll, animator)
     follower:SetCollisionGroup(COLLISION_GROUP_DEBRIS) -- COLLISION_GROUP_NONE if not set to COLLISION_GROUP_DEBRIS
     follower:SetCustomCollisionCheck(true)             -- can work together with SetCollisionGroup
 
-    follower.isEPDACustomEnt = true
+    follower.EPDACustomEntFlag = true
 
     follower:SetPos(animator:GetPos())
     follower:SetAngles(animator:GetAngles())
@@ -163,7 +163,8 @@ local function createRagdoll(ply)
     local ragdoll = ents.Create("prop_ragdoll")
     ragdoll:SetModel(ply:GetModel())
 
-    ragdoll.isEPDACustomEnt = true
+    ragdoll.EPDACustomEntFlag = true
+    ragdoll.EPDAOwner = ply
 
     ragdoll:SetPos(ply:GetPos())
     ragdoll:SetAngles(ply:GetAngles())
@@ -199,7 +200,7 @@ local function CreateProps(ply)
 end
 
 hook.Add("ShouldCollide", "ShouldCollide_EPDA_FakeDeathProps", function(ent1, ent2)
-    return not (ent1.isEPDACustomEnt and ent2.isEPDACustomEnt)
+    return not (ent1.EPDACustomEntFlag and ent2.EPDACustomEntFlag)
 end)
 
 return CreateProps
